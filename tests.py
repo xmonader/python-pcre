@@ -67,6 +67,18 @@ def test_get_by_index_namelessgroup():
     assert m.group(1) == b'Ahmed'
     assert m.group(2)  == b'90'
 
+def test_backrefs_match():
+    reg = Regex("(\d+)\s\\1")
+    m = reg.match("90 90")
+    assert m is not None
+    assert m.group(0) == b"90 90"
+    assert m.group(1) == b'90'
+
+
+def test_backrefs_dontmatch():
+    reg = Regex("(\d+)\s\\1")
+    m = reg.match("90 30")
+    assert m is None
 
 def test_get_by_index_namedgroup():
     reg = Regex("(?P<name>\w+)\s(?P<age>\d+)")
