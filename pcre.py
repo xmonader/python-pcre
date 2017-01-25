@@ -507,7 +507,6 @@ class Match(object):
         namecount = captured_count(self.reg)
         entrysize = c_int()
         table = c_char_p()
-        #import ipdb; ipdb.set_trace()
         capcount = captured_count(self.reg)
 
         pcre_fullinfo(self.reg, None, PCRE_INFO_NAMEENTRYSIZE, byref(entrysize))
@@ -568,9 +567,6 @@ class Match(object):
     def _group_index_by_name(self, n):
         n = bytes(n, encoding='utf8')
         return pcre_get_stringnumber(self.reg, c_char_p(n))
-
-    def _group_name_by_idx(self, n):
-        assert isinstance(n, int) and n > 0
 
     def span(self, n=0):
         return self.start(n), self.end(n)  # tuple
