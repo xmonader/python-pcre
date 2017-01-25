@@ -404,10 +404,7 @@ class Regex(object):
             return Match(self.reg, against, flags, *res)
         return None
 
-    def get_name_table(self):
-        p = c_char_p()
-        i = pcre_fullinfo(self.reg, None, PCRE_INFO_NAMETABLE, p)
-        return p, i
+
 
     def isearch(self, s, flags=None):
         x = 0
@@ -502,14 +499,42 @@ class Match(object):
         for i in range(self.capcount+1):
             if self.group(i):
                 yield self.group(i)
+    
+    #FIXME: build index here not just fetch the names 
+    ## TOO SLOW.
+    def get_name_table(self):
+        p = c_char_p()
+        namecount = captured_count(self.reg)
+        entrysize = c_int()
+        table = c_char_p()
+        #import ipdb; ipdb.set_trace()
+        capcount = captured_count(self.reg)
+
+        pcre_fullinfo(self.reg, None, PCRE_INFO_NAMEENTRYSIZE, byref(entrysize))
+        pcre_fullinfo(self.reg, None, PCRE_INFO_NAMETABLE, byref(table)) 
+        tbl = cast(table, POINTER(c_char))
+        #WIP
+        groups = []
+        for i in range(namecount):
+            # key starts from tbl[2] 
+            gname = b""
+            idx = 2
+            while tbl[idx] != b"\x00":
+                gname += (tbl[idx])
+                idx += 1
+            groups.append(gname.decode('utf8'))
+            # import pdb; pdb.set_trace()
+            void_p = cast(tbl, c_voidp).value+entrysize.value
+            tbl = cast(void_p, POINTER(c_char))
+
+        return groups
 
     def groupdict(self):
-        # FIXME
-        if self._groupdict:
-            for i in range(self.capcount):
-                if self.ovec[i] != None:
-                    pass
-            return self._groupdict
+        for gname in self.get_name_table():
+            gname = str(gname)
+            self._groupdict[gname] = self.group(gname)
+        return self._groupdict
+
 
     def group(self, n=0):
         # n: int or n:string
@@ -533,7 +558,7 @@ class Match(object):
             # const char *subject, int *ovector,
             # int stringcount, const char *stringname,
             # const char **stringptr);
-    def gbyname(self, n):
+    def group_by_name(self, n):
         n = bytes(n, encoding='utf8')
         p = c_char_p()
         r = pcre_get_named_substring(self.reg, c_char_p(
@@ -571,37 +596,3 @@ class Match(object):
     def __str__(self):
         return "pcre.Match<{_id}> span: {span}".format(_id=id(self), span=self.span())
 
-def test():
-
-    reg = Regex("(?P<name>\w+?)\s(?P<num>\d+)")
-    print(reg)
-    reg.get_name_table()
-    m = reg.match("ahmed 19")
-    if m:
-        print("match!")
-        print("gbyname: ", m.gbyname('name'))
-        print(list(m.groups()))
-        print(m.group(1))
-        print(m.group('num'))
-        print(m.span('num'))
-    print("CapCount: ",str(captured_count(reg.reg)))
-    exec_match(reg.reg, "ahmed 19", 0)
-
-
-def test2():
-    reg = Regex("(\d+)")
-    print(list(reg.ifindall("hello19 world yeaa34aah! sweeet20")))
-    print([m.group()
-           for m in list(reg.isearch("hello19 world yeaa34aah! sweeet20"))])
-    print("SUB: ", reg.replace("<DIGIT>", "hello19 world2xxxxxs that's my 60rules!"))
-    print("SUBN: ", reg.replacen(
-        "<DIGIT>", "hello19 world2xxxxxs that's my 60rules!", count=3))
-    print([m.group() for m in reg.isearch("that 12 and more 32 as 311")])
-    reg = Regex("(SEP)")
-    s2 = "hello SEP world SEP earth"
-    print(list(reg.isplit(s2)))
-
-
-if __name__ == "__main__":
-    test()
-    test2()
