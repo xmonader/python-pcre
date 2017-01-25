@@ -24,7 +24,7 @@ from ctypes import *
 libpcre = None
 try:
     libpcre = CDLL("libpcre.so")
-except:
+except ImportError:
     print("libpcre is not installed.")
     exit(-1)
 
@@ -66,30 +66,30 @@ PCRE_JAVASCRIPT_COMPAT = 0x02000000
 
 
 # Exec-time and get/set-time error codes
-PCRE_ERROR_NOMATCH = (-1)
-PCRE_ERROR_NULL = (-2)
-PCRE_ERROR_BADOPTION = (-3)
-PCRE_ERROR_BADMAGIC = (-4)
-PCRE_ERROR_UNKNOWN_OPCODE = (-5)
-PCRE_ERROR_UNKNOWN_NODE = (-5)
-PCRE_ERROR_NOMEMORY = (-6)
-PCRE_ERROR_NOSUBSTRING = (-7)
-PCRE_ERROR_MATCHLIMIT = (-8)
-PCRE_ERROR_CALLOUT = (-9)
-PCRE_ERROR_BADUTF8 = (-10)
-PCRE_ERROR_BADUTF8_OFFSET = (-11)
-PCRE_ERROR_PARTIAL = (-12)
-PCRE_ERROR_BADPARTIAL = (-13)
-PCRE_ERROR_INTERNAL = (-14)
-PCRE_ERROR_BADCOUNT = (-15)
-PCRE_ERROR_DFA_UITEM = (-16)
-PCRE_ERROR_DFA_UCOND = (-17)
-PCRE_ERROR_DFA_UMLIMIT = (-18)
-PCRE_ERROR_DFA_WSSIZE = (-19)
-PCRE_ERROR_DFA_RECURSE = (-20)
-PCRE_ERROR_RECURSIONLIMIT = (-21)
-PCRE_ERROR_NULLWSLIMIT = (-22)
-PCRE_ERROR_BADNEWLINE = (-23)
+PCRE_ERROR_NOMATCH = -1
+PCRE_ERROR_NULL = -2
+PCRE_ERROR_BADOPTION = -3
+PCRE_ERROR_BADMAGIC = -4
+PCRE_ERROR_UNKNOWN_OPCODE = -5
+PCRE_ERROR_UNKNOWN_NODE = -5
+PCRE_ERROR_NOMEMORY = -6
+PCRE_ERROR_NOSUBSTRING = -7
+PCRE_ERROR_MATCHLIMIT = -8
+PCRE_ERROR_CALLOUT = -9
+PCRE_ERROR_BADUTF8 = -10
+PCRE_ERROR_BADUTF8_OFFSET = -11
+PCRE_ERROR_PARTIAL = -12
+PCRE_ERROR_BADPARTIAL = -13
+PCRE_ERROR_INTERNAL = -14
+PCRE_ERROR_BADCOUNT = -15
+PCRE_ERROR_DFA_UITEM = -16
+PCRE_ERROR_DFA_UCOND = -17
+PCRE_ERROR_DFA_UMLIMIT = -18
+PCRE_ERROR_DFA_WSSIZE = -19
+PCRE_ERROR_DFA_RECURSE = -20
+PCRE_ERROR_RECURSIONLIMIT = -21
+PCRE_ERROR_NULLWSLIMIT = -22
+PCRE_ERROR_BADNEWLINE = -23
 
 # Request types for pcre_fullinfo()
 PCRE_INFO_OPTIONS = 0
@@ -364,10 +364,7 @@ pcre_version.restype = c_char_p
 def captured_count(code):
     capcount = c_long()
     pcre_fullinfo(code, None, PCRE_INFO_CAPTURECOUNT, byref(capcount))
-    # print "CAPCOUNT: ", capcount.value
-
     return capcount.value
-
 
 def exec_match(reg, against, flags=0):
     sagainst = c_char_p(against)
@@ -380,12 +377,8 @@ def exec_match(reg, against, flags=0):
     p_pcre_extra = pcre_extra_p()
     rc = pcre_exec(reg, p_pcre_extra, sagainst, slen, 0, flags, ovec, ovecsize)
     if rc < 0:
-        if rc == PCRE_ERROR_NOMATCH:
-            pass
-            # print "No match"
         return None
     else:
-        # print "Match!"
         return rc, ovec
 
 
@@ -405,15 +398,14 @@ class Regex(object):
             flags = self.flags
         self._lastmatchagainst = against
         res = exec_match(self.reg, against, flags)
-        if res is not None:
+        if res:
             return Match(self.reg, against, flags, *res)
         return None
 
     def get_name_table(self):
         p = c_char_p()
         i = pcre_fullinfo(self.reg, None, PCRE_INFO_NAMETABLE, p)
-        print("I:", i)
-        print("P:", p)
+        return p, i
 
     def isearch(self, s, flags=None):
         x = 0
@@ -455,31 +447,6 @@ class Regex(object):
             else:
                 x += 1
         yield lastafter
-
-    # def isplit(self, s, flags=None):
-        # res=[]
-        # x=0
-        # lastm=None
-
-        # FIXME (get rid lastm, lastx)
-        # while x<len(s):
-        #m=self.match(s[x:], flags)
-        # if m:
-        # lastm=m # a WATCHME
-        # lastx=x # a WATCHME
-        # sbeforematch=s[:x]
-        # res.append(sbeforematch)
-        # sinmatch=s[x+m.start():x+m.end()]
-        # safter=s[x+m.end()+1:]
-        # res.append(sbeforematch)
-        # res.extend(list(m.groups()))
-        # x+=m.end()
-        # else:
-        # x+=1
-        # if lastm :
-        # print "LastM:", lastm
-        # res.append(s[lastx+lastm.end():])
-        # return res
 
     def sub(self, repl, s, flags=None):
         x = 0
@@ -535,7 +502,8 @@ class Match(object):
                 yield self.group(i)
 
     def groupdict(self):
-        if self._groupdict != {}:
+        # FIXME
+        if self._groupdict:
             for i in range(self.capcount):
                 if self.ovec[i] != None:
                     pass
@@ -596,9 +564,8 @@ class Match(object):
         else:
             raise ValueError
 
-    def about(self):
-        return "I'm a match, and span: ", self.span()
-
+    def __str__(self):
+        return "pcre.Match<{_id}> span: {span}".format(_id=id(self), span=self.span())
 
 def test():
 
@@ -613,8 +580,8 @@ def test():
         print(m.group(1))
         print(m.group('num'))
         print(m.span('num'))
-    # print "CapCount: ", captured_count(reg)
-    #exec_match(reg, "ahmed 19", 0)
+    print("CapCount: ",str(captured_count(reg.reg)))
+    exec_match(reg.reg, "ahmed 19", 0)
 
 
 def test2():
@@ -631,5 +598,5 @@ def test2():
     print(list(reg.isplit(s2)))
     # print "PARTS:", parts`
 if __name__ == "__main__":
-    # test()
+    test()
     test2()
