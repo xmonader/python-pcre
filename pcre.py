@@ -499,7 +499,7 @@ class Match(object):
         self._groupdict = {}
 
     def groups(self):
-        for i in range(self.capcount):
+        for i in range(self.capcount+1):
             if self.group(i):
                 yield self.group(i)
 
