@@ -214,6 +214,7 @@ pcre_compile.argstype = [c_char_p, c_int, POINTER(
 
 
 def compile(pattern, flags=PCRE_ANCHORED):
+    pattern = bytes(pattern, encoding="utf8")
     s = c_char_p(pattern)
     options = c_int(flags)
     errptr = c_char_p()
@@ -367,6 +368,7 @@ def captured_count(code):
     return capcount.value
 
 def exec_match(reg, against, flags=0):
+    against = bytes(against, encoding="utf8")
     sagainst = c_char_p(against)
     slen = len(against)
     ncapcount = captured_count(reg)
@@ -489,7 +491,7 @@ class Match(object):
 
     def __init__(self, reg, against, flags, rc, ovec):
         self.reg = reg
-        self.against = against
+        self.against = bytes(against, encoding='utf8')
         self.flags = flags
         self._rc = rc
         self._ovec = ovec
@@ -532,12 +534,14 @@ class Match(object):
             # int stringcount, const char *stringname,
             # const char **stringptr);
     def gbyname(self, n):
+        n = bytes(n, encoding='utf8')
         p = c_char_p()
         r = pcre_get_named_substring(self.reg, c_char_p(
             self.against), self._ovec, self._rc, c_char_p(n),  byref(p))
         return p.value
 
     def _group_index_by_name(self, n):
+        n = bytes(n, encoding='utf8')
         return pcre_get_stringnumber(self.reg, c_char_p(n))
 
     def _group_name_by_idx(self, n):
@@ -596,7 +600,8 @@ def test2():
     reg = Regex("(SEP)")
     s2 = "hello SEP world SEP earth"
     print(list(reg.isplit(s2)))
-    # print "PARTS:", parts`
+
+
 if __name__ == "__main__":
     test()
     test2()
